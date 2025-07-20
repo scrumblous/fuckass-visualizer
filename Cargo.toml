@@ -1,0 +1,19 @@
+[package]
+name = "testing"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+cpal = "0.16.0"
+defer-rs = "0.1.0"
+hide_console = "0.2.1"
+iced = { version ="0.13.1", features = ["canvas", "tokio", "advanced"] }
+windows = { version = "0.52", features = [
+    "Win32_Media_Audio",
+    "Win32_System_Com",
+    "Win32_Foundation",
+    "Win32_Media_Audio_DirectSound",
+    "Win32_System_Com_StructuredStorage",
+    "Win32_System_Variant",
+    "Win32_UI_Shell_PropertiesSystem"
+] }
