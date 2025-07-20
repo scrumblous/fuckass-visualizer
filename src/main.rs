@@ -1,4 +1,4 @@
-use cpal::traits::{DeviceTrait, HostTrait};
+use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use std::sync::{Arc, Mutex};
 use std::thread::spawn;
 use iced::{window, Element, Renderer, Theme, Rectangle, Point, Color, application, Size, Subscription};
@@ -14,14 +14,16 @@ use windows::{
 type SharedBuffer = Arc<Mutex<Vec<f32>>>;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    const ICON_DATA: &[u8] = include_bytes!("../icon.rgba");
+    let test = window::icon::from_rgba(Vec::from(ICON_DATA), 90, 90).unwrap();
     hide_console::hide_console();
     let window_size = Size::new(1000.0, 500.0);
     let setting = window::Settings {
         size: window_size,
         transparent: false,
-        resizable: true,
+        resizable: false,
         level: window::Level::AlwaysOnTop,
-        icon: None,
+        icon: test.into(),
         ..Default::default()
     };
     application("awesome fucking visualizer", Visualizer::update, Visualizer::view)
@@ -55,9 +57,10 @@ impl Visualizer {
     fn new() -> Self{
         let audio_buffer = Arc::new(Mutex::new(Vec::new()));
         let clone_buffer = audio_buffer.clone();
+        let clone_buffer2 = audio_buffer.clone();
         //testing();
         spawn(move || {
-            start_desktop_audio_capture(clone_buffer).unwrap();
+            start_desktop_audio_capture(clone_buffer).unwrap_or_else(|_| start_audio_capture(clone_buffer2).unwrap());
         });
         Self {
             audio_buffer,
@@ -113,41 +116,41 @@ impl <Message> canvas::Program<Message> for AudioCanvas{
     }
 }
 // OLD WAY OF CAPTURING AUDIO (VIRTUAL CABLE :SOB:)
-//fn start_audio_capture(buffer: SharedBuffer) -> Result<(), Box<dyn std::error::Error>> {
-//    let host = cpal::default_host();
-//    let device = host.default_input_device().expect("No input device found");
-//    let config = device.default_input_config()?;
-//    let bufclone = buffer.clone();
+fn start_audio_capture(buffer: SharedBuffer) -> Result<(), Box<dyn std::error::Error>> {
+    let host = cpal::default_host();
+    let device = host.default_input_device().expect("No input device found");
+    let config = device.default_input_config()?;
+    let bufclone = buffer.clone();
 
-//    println!("Starting audio capture from: {}", device.name()?);
+    println!("Starting audio capture from: {}", device.name()?);
 
-//    let stream = device.build_input_stream(
-//        &config.into(),
-//        move |data: &[f32], _info| {
-//            if let Ok(mut buffer) = buffer.try_lock() {
-//                buffer.extend_from_slice(data);
-//                let bufferlen = buffer.len();
-//                if buffer.len() > 2000 {
-//                    buffer.drain(0..bufferlen - 2000);
-//                }
-//            }
-//            let buf = bufclone.lock().unwrap();
-//            let sum_of_absolutes: f32 = buf.iter().map(|&x| (x * x).sqrt()).sum();
-//            let rms = sum_of_absolutes / buf.len() as f32;
-//            print!("\raverage volume: {rms}");
-//        },
-//        |err| eprintln!("Audio error: {}", err),
-//        None,
-//    )?;
+    let stream = device.build_input_stream(
+        &config.into(),
+        move |data: &[f32], _info| {
+            if let Ok(mut buffer) = buffer.try_lock() {
+                buffer.extend_from_slice(data);
+                let bufferlen = buffer.len();
+                if buffer.len() > 2000 {
+                    buffer.drain(0..bufferlen - 2000);
+                }
+            }
+            let buf = bufclone.lock().unwrap();
+            let sum_of_absolutes: f32 = buf.iter().map(|&x| (x * x).sqrt()).sum();
+            let rms = sum_of_absolutes / buf.len() as f32;
+            print!("\raverage volume: {rms}");
+        },
+        |err| eprintln!("Audio error: {}", err),
+        None,
+    )?;
 
-//    stream.play()?;
+    stream.play()?;
 
-//    // keep the audio thread alive
-//    loop {
-//        //println!("buffer length: {:?}", bufclone.lock().unwrap().len());
-//        std::thread::sleep(std::time::Duration::from_millis(100));
-//    }
-//}
+    // keep the audio thread alive
+    loop {
+        //println!("buffer length: {:?}", bufclone.lock().unwrap().len());
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+}
 
 fn start_desktop_audio_capture(buffer: SharedBuffer) -> Result<(), Box<dyn std::error::Error>> {
     unsafe {

@@ -7,7 +7,7 @@ edition = "2024"
 cpal = "0.16.0"
 defer-rs = "0.1.0"
 hide_console = "0.2.1"
-iced = { version ="0.13.1", features = ["canvas", "tokio", "advanced"] }
+iced = { version ="0.13.1", features = ["canvas", "tokio", "advanced", "image"] }
 windows = { version = "0.52", features = [
     "Win32_Media_Audio",
     "Win32_System_Com",
@@ -17,3 +17,7 @@ windows = { version = "0.52", features = [
     "Win32_System_Variant",
     "Win32_UI_Shell_PropertiesSystem"
 ] }
+
+[build-dependencies]
+winres = "0.1"
+image = "0.25.6"
