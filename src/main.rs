@@ -1,7 +1,7 @@
-use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+use cpal::traits::{DeviceTrait, HostTrait};
 use std::sync::{Arc, Mutex};
 use std::thread::spawn;
-use iced::{window, Element, Renderer, Theme, Rectangle, Point, Color, application, Size, Subscription, Task};
+use iced::{window, Element, Renderer, Theme, Rectangle, Point, Color, application, Size, Subscription};
 use iced::mouse::Cursor;
 use iced::widget::{canvas};
 use iced::widget::canvas::{Geometry, Stroke, Style};
@@ -87,13 +87,13 @@ impl Visualizer {
 
 impl <Message> canvas::Program<Message> for AudioCanvas{
     type State = ();
-    fn draw(&self, state: &Self::State, renderer: &Renderer, theme: &Theme, bounds: Rectangle, cursor: Cursor) -> Vec<Geometry<Renderer>> {
+    fn draw(&self, _state: &Self::State, renderer: &Renderer, _theme: &Theme, _bounds: Rectangle, _cursor: Cursor) -> Vec<Geometry<Renderer>> {
         let mut frame = canvas::Frame::new(renderer, Size::new(1000.0, 500.0));
-        let mut test = canvas::Path::circle(Point::new(500.0, 0.0), self.radius);
+        let test = canvas::Path::circle(Point::new(500.0, 0.0), self.radius);
         let buffer = self.buffer.lock().unwrap();
         //print!("\r current radius: {}", self.radius);
         let mut x: f32 = 0.0;
-        let mut test2 = canvas::Path::new(|builder| {
+        let test2 = canvas::Path::new(|builder| {
             for coord in buffer[0..2000].iter().step_by(4) {
                 x+=2.0;
                 let absolute_coord = 500.0 - ((coord * coord).sqrt() * 500.0);
@@ -227,13 +227,6 @@ fn start_desktop_audio_capture(buffer: SharedBuffer) -> Result<(), Box<dyn std::
     }
 }
 
-fn testing() {
-    let host = cpal::default_host();
-    let devices = host.input_devices().unwrap().into_iter();
-    for device in devices{
-        println!("device name: {}", device.name().unwrap());
-    }
-}
 fn push_towards_extreme(x: f32, strength: f32) -> f32 {
     if x < 0.5 {
         ((2.0 * x).powf(strength)) / 2.0
