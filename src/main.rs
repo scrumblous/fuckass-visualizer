@@ -1,7 +1,7 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use std::sync::{Arc, Mutex};
 use std::thread::spawn;
-use iced::{window, Element, Renderer, Theme, Rectangle, Point, Color, application, Size, Subscription};
+use iced::{window, Element, Renderer, Theme, Rectangle, Point, Color, application, Size, Subscription, mouse, Event};
 use iced::mouse::Cursor;
 use iced::widget::{canvas};
 use iced::widget::canvas::{Geometry, Stroke, Style};
@@ -22,30 +22,33 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         size: window_size,
         transparent: false,
         resizable: false,
-        level: window::Level::AlwaysOnTop,
+        position: window::Position::Centered,
         icon: test.into(),
+        decorations: false,
         ..Default::default()
     };
     application("awesome fucking visualizer", Visualizer::update, Visualizer::view)
         .window(setting)
         .subscription(Visualizer::subscription)
         .run_with(|| {
-            (Visualizer::new(), iced::Task::none())
+            (Visualizer::new(), window::get_latest().map(Message::Testing))
         }
     ).expect("some error");
     Ok(())
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Visualizer {
     audio_buffer: Arc<Mutex<Vec<f32>>>,
     canvas_cache: canvas::Cache,
     radius: f32,
+    window_id: window::Id,
 }
 
 #[derive(Debug, Clone)]
 pub enum Message{
     Tick,
+    Testing(Option<window::Id>),
 }
 
 pub struct AudioCanvas{
@@ -58,7 +61,6 @@ impl Visualizer {
         let audio_buffer = Arc::new(Mutex::new(Vec::new()));
         let clone_buffer = audio_buffer.clone();
         let clone_buffer2 = audio_buffer.clone();
-        //testing();
         spawn(move || {
             start_desktop_audio_capture(clone_buffer).unwrap_or_else(|_| start_audio_capture(clone_buffer2).unwrap());
         });
@@ -66,6 +68,7 @@ impl Visualizer {
             audio_buffer,
             canvas_cache: canvas::Cache::default(),
             radius: 20.0,
+            window_id: window::Id::unique(),
         }
     }
     fn update(&mut self, message: Message) {
@@ -74,9 +77,13 @@ impl Visualizer {
                 let buffer = self.audio_buffer.clone();
                 let buff = buffer.lock().unwrap();
                 let sum_of_absolutes: f32 = buff.iter().map(|&x| (x * x).sqrt()).sum();
+                let _ = window::get_latest().and_then(move |id|{println!("{}", id); window::get_minimized(id).into()});
                 let rms = (sum_of_absolutes / buff.len() as f32).sqrt();
                 self.radius = (push_towards_extreme(rms, 2.0) * 200.0) + 20.0;
                 self.canvas_cache.clear();
+            },
+            Message::Testing(id) => {
+                self.window_id = id.unwrap();
             }
         }
     }
@@ -94,7 +101,7 @@ impl <Message> canvas::Program<Message> for AudioCanvas{
         let mut frame = canvas::Frame::new(renderer, Size::new(1000.0, 500.0));
         let test = canvas::Path::circle(Point::new(500.0, 0.0), self.radius);
         let buffer = self.buffer.lock().unwrap();
-        //print!("\r current radius: {}", self.radius);
+        //print!("\rcurrent radius: {}", self.radius);
         let mut x: f32 = 0.0;
         let test2 = canvas::Path::new(|builder| {
             for coord in buffer[0..2000].iter().step_by(4) {
@@ -152,6 +159,7 @@ fn start_audio_capture(buffer: SharedBuffer) -> Result<(), Box<dyn std::error::E
     }
 }
 
+// AI GENERATED BECAUSE WINAPI SUCKS
 fn start_desktop_audio_capture(buffer: SharedBuffer) -> Result<(), Box<dyn std::error::Error>> {
     unsafe {
         // Initialize COM
@@ -229,6 +237,7 @@ fn start_desktop_audio_capture(buffer: SharedBuffer) -> Result<(), Box<dyn std::
         }
     }
 }
+
 
 fn push_towards_extreme(x: f32, strength: f32) -> f32 {
     if x < 0.5 {
