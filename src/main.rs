@@ -3,7 +3,7 @@ mod cpal_audio;
 
 use std::sync::{Arc, Mutex};
 use std::thread::spawn;
-use iced::{window, Element, Renderer, Theme, Rectangle, Point, Color, application, Size, Subscription};
+use iced::{window, Element, Renderer, Theme, Rectangle, Point, Color, application, Size, Subscription, Task};
 use iced::mouse::Cursor;
 use iced::widget::{canvas};
 use iced::widget::canvas::{Geometry, Stroke, Style};
@@ -23,7 +23,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         resizable: false,
         position: window::Position::Centered,
         icon: test.into(),
-        decorations: false,
+        decorations: true,
         //level: window::Level::AlwaysOnTop,
         ..Default::default()
     };
@@ -31,7 +31,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .window(setting)
         .subscription(Visualizer::subscription)
         .run_with(|| {
-            (Visualizer::new(), window::get_latest().map(Message::GetIced))
+            (Visualizer::new(), Task::none())
         }
     ).expect("some error");
     Ok(())
@@ -42,15 +42,11 @@ pub struct Visualizer {
     audio_buffer: Arc<Mutex<Vec<f32>>>,
     canvas_cache: canvas::Cache,
     radius: f32,
-    window_id: window::Id,
-    raw_id: u64,
 }
 
 #[derive(Debug, Clone)]
 pub enum Message{
     Tick,
-    GetIced(Option<window::Id>),
-    GetRaw(u64),
 }
 
 pub struct AudioCanvas{
@@ -70,31 +66,20 @@ impl Visualizer {
             audio_buffer,
             canvas_cache: canvas::Cache::default(),
             radius: 20.0,
-            window_id: window::Id::unique(),
-            raw_id: 999999,
         }
     }
-    fn update(&mut self, message: Message) -> iced::Task<Message> {
+    fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::Tick => {
                 let buffer = self.audio_buffer.clone();
                 let buff = buffer.lock().unwrap();
                 let sum_of_absolutes: f32 = buff.iter().map(|&x| (x * x).sqrt()).sum();
-                let _ = window::get_latest().and_then(move |id|{println!("{}", id); window::get_minimized(id).into()});
                 let rms = (sum_of_absolutes / buff.len() as f32).sqrt();
                 self.radius = (exponentiate(rms, -0.5) * 200.0) + 20.0;
                 self.canvas_cache.clear();
             },
-            Message::GetIced(id) => {
-                self.window_id = id.unwrap();
-                let _ = window::get_raw_id::<Message>(id.unwrap()).map(Message::GetRaw);
-            },
-            Message::GetRaw(raw_id) => {
-                println!("raw id: {}", raw_id);
-                self.raw_id = raw_id;
-            }
         }
-        iced::Task::none()
+        Task::none()
     }
     fn view(&self) -> Element<'_, Message> {
         canvas(AudioCanvas {buffer: self.audio_buffer.clone(), radius: self.radius}).into()
@@ -108,7 +93,7 @@ impl <Message> canvas::Program<Message> for AudioCanvas{
     type State = ();
     fn draw(&self, _state: &Self::State, renderer: &Renderer, _theme: &Theme, _bounds: Rectangle, _cursor: Cursor) -> Vec<Geometry<Renderer>> {
         let mut frame = canvas::Frame::new(renderer, Size::new(1500.0, 1000.0));
-        let test = canvas::Path::circle(Point::new(750.0, 500.0), self.radius * 2.0);
+        let test = canvas::Path::circle(Point::new(750.0, 500.0), self.radius * 1.3);
         let buffer = self.buffer.lock().unwrap();
         //print!("\rcurrent radius: {}", self.radius);
         let mut x: f32 = 0.0;
