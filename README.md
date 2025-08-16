@@ -1,1 +1,1 @@
-my first ever rust project brah ❤
+my first somewhat real rust project
